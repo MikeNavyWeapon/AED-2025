@@ -1,0 +1,7 @@
+{
+  "code-runner.runInTerminal": true,
+  "code-runner.executorMap": {
+    "c": "bash -lc 'cd $dirWithoutTrailingSlash && gcc $fileName -o $fileNameWithoutExt && ./$fileNameWithoutExt'",
+    "cpp": "bash -lc 'cd $dirWithoutTrailingSlash && g++ $fileName -o $fileNameWithoutExt && ./$fileNameWithoutExt'"
+  }
+}

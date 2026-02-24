@@ -1,0 +1,37 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\PC\\Desktop\\Algoritmos e Estruturas de Dados\\LabAED\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{6ECB5BF7-C3E6-4751-BCF0-24D74D807F8E}|LabAED\\LabAED.vcxproj|C:\\Users\\PC\\Desktop\\Algoritmos e Estruturas de Dados\\LabAED\\LabAED\\LabAED.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{6ECB5BF7-C3E6-4751-BCF0-24D74D807F8E}|LabAED\\LabAED.vcxproj|solutionrelative:LabAED\\LabAED.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "LabAED.cpp",
+              "DocumentMoniker": "C:\\Users\\PC\\Desktop\\Algoritmos e Estruturas de Dados\\LabAED\\LabAED\\LabAED.cpp",
+              "RelativeDocumentMoniker": "LabAED\\LabAED.cpp",
+              "ToolTip": "C:\\Users\\PC\\Desktop\\Algoritmos e Estruturas de Dados\\LabAED\\LabAED\\LabAED.cpp",
+              "RelativeToolTip": "LabAED\\LabAED.cpp",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2026-02-21T16:50:36.523Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
