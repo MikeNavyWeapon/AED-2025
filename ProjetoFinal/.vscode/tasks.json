@@ -1,0 +1,46 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CMake: configurar",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["-S", ".", "-B", "build", "-G", "MinGW Makefiles"],
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake: compilar",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--build", "build"],
+      "group": { "kind": "build", "isDefault": true },
+      "dependsOn": "CMake: configurar",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Correr aplicação",
+      "type": "shell",
+      "command": "${workspaceFolder}/build/ctikg.exe",
+      "dependsOn": "CMake: compilar",
+      "problemMatcher": []
+    },
+    {
+      "label": "Correr testes",
+      "type": "shell",
+      "command": "ctest",
+      "args": ["--test-dir", "build", "--output-on-failure"],
+      "dependsOn": "CMake: compilar",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Arrancar API",
+      "type": "shell",
+      "command": "${workspaceFolder}/build/ctikg_api_server.exe",
+      "args": ["8080"],
+      "dependsOn": "CMake: compilar",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

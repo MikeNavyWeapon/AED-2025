@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Grafo de Conhecimento CTI</title>
+<script src="vendor/vis-network.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1524; --panel: #161f31; --panel2: #1f2a40; --panel3: #26344f;
+    --text: #e6ebf5; --muted: #94a3b8; --accent: #38bdf8; --accent2: #22d3ee;
+    --border: #2b3a54; --ok: #34d399; --err: #f87171; --warn: #fbbf24;
+    --hdr: 52px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg);
+         color: var(--text); height: 100vh; overflow: hidden; }
+
+  /* ---------- header ---------- */
+  header { height: var(--hdr); display: flex; align-items: center; gap: 12px; padding: 0 16px;
+           background: linear-gradient(180deg,#1a2540,#131c30); border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; white-space: nowrap; }
+  header h1 .accent { color: var(--accent); }
+  .badge { font-size: 12px; color: var(--muted); background: var(--panel2);
+           border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; white-space: nowrap; }
+  .spacer { flex: 1; }
+  #search { width: 210px; }
+
+  /* ---------- layout ---------- */
+  .layout { display: grid; grid-template-columns: 240px 1fr 360px; grid-template-rows: 100%;
+            height: calc(100vh - var(--hdr)); }
+  .sidebar, .panel { background: var(--panel); overflow-y: auto; }
+  .sidebar { border-right: 1px solid var(--border); padding: 14px; }
+  .panel { border-left: 1px solid var(--border); display: flex; flex-direction: column; }
+  #network { height: calc(100vh - var(--hdr)); width: 100%; min-width: 0; min-height: 0;
+             position: relative; background: radial-gradient(circle at 50% 40%, #16203400, #0a0f1c); }
+
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+       margin: 16px 0 8px; }
+  h2:first-child { margin-top: 0; }
+
+  /* ---------- controls ---------- */
+  button { background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+           border-radius: 7px; padding: 7px 12px; cursor: pointer; font-size: 13px; transition: .15s; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #08131f; border-color: var(--accent); font-weight: 600; }
+  button.danger { border-color: #7f1d1d; color: #fca5a5; }
+  button.danger:hover { background: #7f1d1d33; }
+  button.sm { padding: 4px 8px; font-size: 12px; }
+  select, input, textarea { width: 100%; background: var(--panel2); color: var(--text);
+           border: 1px solid var(--border); border-radius: 7px; padding: 7px; font-size: 13px; margin-bottom: 8px; }
+  textarea { resize: vertical; min-height: 46px; }
+  label.chk { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 13px; cursor: pointer; }
+  label.chk input { width: auto; margin: 0; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+
+  /* ---------- tabs ---------- */
+  .tabs { display: flex; gap: 4px; padding: 10px 10px 0; border-bottom: 1px solid var(--border);
+          background: var(--panel); position: sticky; top: 0; z-index: 3; flex-wrap: wrap; }
+  .tab { padding: 7px 11px; font-size: 12.5px; border-radius: 8px 8px 0 0; cursor: pointer; color: var(--muted);
+         border: 1px solid transparent; border-bottom: none; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); background: var(--panel2); border-color: var(--border); }
+  .tab-body { padding: 14px; overflow-y: auto; flex: 1; }
+  .tab-page { display: none; }
+  .tab-page.active { display: block; }
+
+  /* ---------- cards / tables ---------- */
+  .card { background: var(--panel2); border: 1px solid var(--border); border-radius: 9px; padding: 11px; margin-bottom: 10px; }
+  .card .name { font-weight: 600; font-size: 14px; }
+  .card .type { font-size: 11px; color: var(--muted); }
+  .kv { font-size: 12px; color: var(--muted); margin-top: 4px; word-break: break-word; }
+  table.list { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.list th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11px;
+                  text-transform: uppercase; padding: 5px 6px; border-bottom: 1px solid var(--border); }
+  table.list td { padding: 5px 6px; border-bottom: 1px solid var(--border); }
+  table.list tr.clickable { cursor: pointer; }
+  table.list tr.clickable:hover td { color: var(--accent); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .neighbor { font-size: 12.5px; padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+  .neighbor .dir { color: var(--accent); font-weight: 700; }
+  .neighbor .conf { color: var(--muted); margin-left: auto; }
+  .pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 20px;
+          background: var(--panel3); color: var(--muted); }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .legend div { padding: 2px 0; font-size: 12px; }
+  .statgrid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .stat { background: var(--panel2); border: 1px solid var(--border); border-radius: 9px; padding: 10px; text-align: center; }
+  .stat .n { font-size: 20px; font-weight: 700; }
+  .stat .l { font-size: 11px; color: var(--muted); }
+
+  /* ---------- toasts ---------- */
+  #toasts { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+  .toast { background: var(--panel3); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+           border-radius: 8px; padding: 10px 14px; font-size: 13px; max-width: 340px; box-shadow: 0 6px 20px #0007;
+           animation: slidein .2s ease; }
+  .toast.ok { border-left-color: var(--ok); }
+  .toast.err { border-left-color: var(--err); }
+  @keyframes slidein { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; }
+  .dot.off { background: var(--err); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Grafo de Conhecimento · <span class="accent">Cyber Threat Intelligence</span></h1>
+  <span class="badge" id="stat-badge">a carregar…</span>
+  <span class="spacer"></span>
+  <input id="search" placeholder="procurar nó pelo nome…" />
+  <button id="btn-demo" class="primary">▶ Demonstração</button>
+  <button id="btn-fit">Enquadrar</button>
+  <span class="badge"><span class="dot" id="conn"></span> API</span>
+</header>
+
+<div class="layout">
+  <!-- ------------------------------------------------------- Sidebar (filtros) -->
+  <aside class="sidebar">
+    <h2>Filtrar por tipo de entidade</h2>
+    <div id="filters"></div>
+    <h2>Filtrar por tipo de relação</h2>
+    <div id="rel-filters"></div>
+    <h2>Legenda</h2>
+    <div id="legend" class="legend"></div>
+  </aside>
+
+  <!-- ------------------------------------------------------------------ Network -->
+  <div id="network"></div>
+
+  <!-- ---------------------------------------------------------- Painel com abas -->
+  <aside class="panel">
+    <nav class="tabs">
+      <div class="tab active" data-tab="detalhes">Detalhes</div>
+      <div class="tab" data-tab="rankings">Rankings</div>
+      <div class="tab" data-tab="criar">Criar</div>
+      <div class="tab" data-tab="consultar">Consultar</div>
+      <div class="tab" data-tab="dados">Dados</div>
+    </nav>
+    <div class="tab-body">
+      <!-- DETALHES -->
+      <div class="tab-page active" id="page-detalhes">
+        <div id="node-details" class="hint">Clica num nó no grafo para ver detalhes e vizinhos.</div>
+        <h2>Vizinhos</h2>
+        <div id="node-neighbors" class="hint">—</div>
+      </div>
+
+      <!-- RANKINGS -->
+      <div class="tab-page" id="page-rankings">
+        <h2>Mais influentes (PageRank)</h2>
+        <label class="chk"><input type="checkbox" id="pr-weighted"> ponderado por confiança</label>
+        <div id="rank-pagerank" style="margin-top:6px"></div>
+        <h2>Centralidade por grau</h2>
+        <div id="rank-degree"></div>
+      </div>
+
+      <!-- CRIAR -->
+      <div class="tab-page" id="page-criar">
+        <h2>Novo nó</h2>
+        <div class="field"><label>Identificador</label><input id="n-id" placeholder="ex.: malware--novo" /></div>
+        <div class="field"><label>Tipo</label><select id="n-type"></select></div>
+        <div class="field"><label>Nome</label><input id="n-name" placeholder="ex.: NovoMalware" /></div>
+        <div class="field"><label>Propriedades (chave=valor por linha, opcional)</label>
+          <textarea id="n-props" placeholder="aliases=Exemplo, Outro"></textarea></div>
+        <button class="primary" id="btn-create-node">Criar nó</button>
+
+        <h2 style="margin-top:22px">Nova relação</h2>
+        <div class="field"><label>Identificador</label><input id="r-id" placeholder="rel--…" /></div>
+        <div class="field"><label>Origem</label><select id="r-source"></select></div>
+        <div class="field"><label>Tipo de relação</label><select id="r-type"></select></div>
+        <div class="field"><label>Destino</label><select id="r-target"></select></div>
+        <div class="field"><label>Confiança: <span id="r-conf-val">50</span></label>
+          <input type="range" id="r-conf" min="0" max="100" value="50" /></div>
+        <button class="primary" id="btn-create-rel">Criar relação</button>
+        <div class="hint" style="margin-top:8px">Combinações inválidas são rejeitadas pelo servidor (mostra a regra violada).</div>
+      </div>
+
+      <!-- CONSULTAR -->
+      <div class="tab-page" id="page-consultar">
+        <h2>Caminho mais curto (BFS)</h2>
+        <div class="field"><label>De</label><select id="path-from"></select></div>
+        <div class="field"><label>Para</label><select id="path-to"></select></div>
+        <div class="row"><button id="btn-path">Mais curto</button><button id="btn-strong">Mais fiável</button></div>
+        <button class="sm" id="btn-clearpath" style="margin-top:6px">Limpar</button>
+        <div id="path-result" class="hint" style="margin-top:8px"></div>
+        <div class="hint">"Mais curto" = menos arestas (BFS). "Mais fiável" = maior confiança (Dijkstra).</div>
+
+        <h2>Nós por tipo</h2>
+        <div class="field"><select id="q-type"></select></div>
+        <button class="sm" id="btn-q-nodes">Listar nós</button>
+        <div id="q-nodes-result" style="margin-top:8px"></div>
+
+        <h2>Relações por tipo</h2>
+        <div class="field"><select id="q-reltype"></select></div>
+        <button class="sm" id="btn-q-rels">Listar relações</button>
+        <div id="q-rels-result" style="margin-top:8px"></div>
+
+        <h2>Travessia (BFS / DFS)</h2>
+        <div class="field"><label>Nó inicial</label><select id="t-start"></select></div>
+        <div class="row">
+          <select id="t-mode"><option value="bfs">BFS</option><option value="dfs">DFS</option></select>
+          <button class="sm" id="btn-traverse">Percorrer</button>
+        </div>
+        <div id="t-result" class="hint" style="margin-top:8px"></div>
+      </div>
+
+      <!-- DADOS -->
+      <div class="tab-page" id="page-dados">
+        <h2>Estatísticas</h2>
+        <div class="statgrid" id="stat-cards"></div>
+        <div id="stat-bytype"></div>
+
+        <h2>Persistência (SQLite)</h2>
+        <div class="field"><label>Ficheiro da base de dados</label><input id="db-path" value="grafo.db" /></div>
+        <div class="row">
+          <button id="btn-save">Guardar</button>
+          <button id="btn-load">Carregar</button>
+        </div>
+        <button class="danger sm" id="btn-reset" style="margin-top:8px">Repor dados sintéticos</button>
+
+        <h2>Registo de eventos</h2>
+        <button class="sm" id="btn-events">Atualizar</button>
+        <div id="events-list" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+// =====================================================================
+//  Configuração e estado
+// =====================================================================
+const TYPE_COLORS = {
+  "threat-actor": "#ef4444", "malware": "#f97316", "indicator": "#3b82f6",
+  "vulnerability": "#a855f7", "campaign": "#14b8a6", "identity": "#22c55e",
+  "attack-pattern": "#94a3b8", "course-of-action": "#eab308",
+};
+const EDGE_COLOR = "#4b5b78", HILITE = "#fbbf24";
+
+const state = {
+  graph: { nodes: [], relationships: [] },
+  schema: { entityTypes: [], relationTypes: [] },
+  rankMap: {}, degList: [], rankList: [],
+  activeTypes: new Set(), activeRelTypes: new Set(),
+  selectedId: null,
+};
+let nodesDS, edgesDS, network;
+const $ = (id) => document.getElementById(id);
+
+// =====================================================================
+//  Cliente da API
+// =====================================================================
+async function apiGet(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || ("HTTP " + r.status));
+  return r.json();
+}
+async function apiSend(method, path, body) {
+  const r = await fetch(path, {
+    method, headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+  return data;
+}
+function setConn(ok) { $("conn").className = "dot" + (ok ? "" : " off"); }
+
+// =====================================================================
+//  Toasts
+// =====================================================================
+function toast(msg, type = "") {
+  const el = document.createElement("div");
+  el.className = "toast " + type;
+  el.textContent = msg;
+  $("toasts").appendChild(el);
+  setTimeout(() => el.remove(), 3800);
+}
+
+// =====================================================================
+//  Arranque e recarga
+// =====================================================================
+async function init() {
+  try {
+    state.schema = await apiGet("/schema");
+    setConn(true);
+  } catch (e) { setConn(false); toast("Sem ligação à API: " + e.message, "err"); return; }
+  buildTypeSelects();
+  await refreshAll();
+  wireEvents();
+}
+
+async function refreshAll() {
+  try {
+    const [graph, ranking, degree] = await Promise.all([
+      apiGet("/graph"), apiGet("/ranking?top=100"), apiGet("/centrality?top=100"),
+    ]);
+    setConn(true);
+    state.graph = graph;
+    state.rankList = ranking;
+    state.degList = degree;
+    state.rankMap = {}; ranking.forEach((r) => (state.rankMap[r.id] = r.score));
+    if (!state.activeTypes.size) state.activeTypes = new Set(Object.keys(TYPE_COLORS));
+    state.activeRelTypes = new Set(graph.relationships.map((r) => r.type));
+    buildFilters(); buildRelFilters(); buildLegend();
+    renderGraph();
+    populateNodeSelects();
+    updateBadge();
+    renderRankings();
+    if (state.selectedId && findNode(state.selectedId)) selectNode(state.selectedId, false);
+  } catch (e) { setConn(false); toast("Erro ao carregar: " + e.message, "err"); }
+}
+
+const findNode = (id) => state.graph.nodes.find((n) => n.id === id);
+const nameOf = (id) => { const n = findNode(id); return n ? n.name : id; };
+
+function updateBadge() {
+  const s = state.graph;
+  const types = new Set(s.nodes.map((n) => n.type)).size;
+  $("stat-badge").textContent = `${s.nodes.length} nós · ${s.relationships.length} relações · ${types} tipos`;
+}
+
+// =====================================================================
+//  Grafo (vis-network)
+// =====================================================================
+function nodeSize(id) { return 12 + (state.rankMap[id] || 0) * 220; }
+
+function renderGraph() {
+  const nodes = state.graph.nodes
+    .filter((n) => state.activeTypes.has(n.type))
+    .map((n) => ({
+      id: n.id, label: n.name, group: n.type, title: `${n.type}: ${n.name}`,
+      value: nodeSize(n.id), color: { background: TYPE_COLORS[n.type] || "#888", border: "#0008" },
+      font: { color: "#e6ebf5" },
+    }));
+  const vis_ids = new Set(nodes.map((n) => n.id));
+  const edges = state.graph.relationships
+    .filter((r) => vis_ids.has(r.source) && vis_ids.has(r.target) && state.activeRelTypes.has(r.type))
+    .map((r) => ({
+      id: r.id, from: r.source, to: r.target, label: `${r.type} (${r.confidence})`,
+      title: "confiança: " + r.confidence + "/100", arrows: "to",
+      color: { color: EDGE_COLOR }, font: { color: "#8fa0bc", size: 10, strokeWidth: 0 },
+    }));
+  nodesDS = new vis.DataSet(nodes);
+  edgesDS = new vis.DataSet(edges);
+  const options = {
+    nodes: { shape: "dot", scaling: { min: 10, max: 45 }, borderWidth: 2 },
+    edges: { smooth: { type: "dynamic" }, length: 190 },
+    physics: { barnesHut: { gravitationalConstant: -8500, springLength: 150 }, stabilization: { iterations: 220 } },
+    interaction: { hover: true, tooltipDelay: 120 },
+  };
+  network = new vis.Network($("network"), { nodes: nodesDS, edges: edgesDS }, options);
+  network.on("click", (p) => { if (p.nodes.length) selectNode(p.nodes[0]); });
+  network.once("stabilizationIterationsDone", () => network.fit({ animation: true }));
+  requestAnimationFrame(() => { network.redraw(); network.fit(); });
+  if (!window._resizeHooked) { window.addEventListener("resize", () => network && network.redraw()); window._resizeHooked = true; }
+}
+
+// =====================================================================
+//  Filtros e legenda
+// =====================================================================
+function buildFilters() {
+  $("filters").innerHTML = "";
+  Object.keys(TYPE_COLORS).forEach((type) => {
+    const on = state.activeTypes.has(type);
+    const lbl = document.createElement("label");
+    lbl.className = "chk";
+    lbl.innerHTML = `<input type="checkbox" ${on ? "checked" : ""}><span class="swatch" style="background:${TYPE_COLORS[type]}"></span>${type}`;
+    lbl.querySelector("input").onchange = (e) => {
+      e.target.checked ? state.activeTypes.add(type) : state.activeTypes.delete(type); renderGraph();
+    };
+    $("filters").appendChild(lbl);
+  });
+}
+function buildRelFilters() {
+  $("rel-filters").innerHTML = "";
+  Array.from(state.activeRelTypes).sort().forEach((type) => {
+    const lbl = document.createElement("label");
+    lbl.className = "chk";
+    lbl.innerHTML = `<input type="checkbox" checked>${type}`;
+    lbl.querySelector("input").onchange = (e) => {
+      e.target.checked ? state.activeRelTypes.add(type) : state.activeRelTypes.delete(type); renderGraph();
+    };
+    $("rel-filters").appendChild(lbl);
+  });
+}
+function buildLegend() {
+  $("legend").innerHTML = Object.entries(TYPE_COLORS)
+    .map(([t, c]) => `<div><span class="swatch" style="background:${c}"></span> ${t}</div>`).join("");
+}
+
+// =====================================================================
+//  Detalhes e vizinhos
+// =====================================================================
+async function selectNode(id, focus = true) {
+  state.selectedId = id;
+  switchTab("detalhes");
+  const node = findNode(id);
+  if (!node) return;
+  const score = (state.rankMap[id] || 0).toFixed(4);
+  let props = "";
+  for (const [k, v] of Object.entries(node.properties || {})) props += `<div class="kv"><b>${k}:</b> ${v}</div>`;
+  $("node-details").innerHTML =
+    `<div class="card"><div class="name">${node.name}</div><div class="type">${node.type}</div>` +
+    `<div class="kv">id: ${node.id}</div><div class="kv">PageRank: ${score}</div>${props}` +
+    `<div class="row" style="margin-top:10px"><button class="sm" onclick="editNode('${node.id}')">Editar</button>` +
+    `<button class="danger sm" onclick="deleteNode('${node.id}')">Apagar nó</button></div></div>`;
+  try {
+    const neighbors = await apiGet("/nodes/" + encodeURIComponent(id) + "/neighbors");
+    $("node-neighbors").innerHTML = neighbors.length ? neighbors.map((e) =>
+      `<div class="neighbor"><span class="dir">${e.direction === "out" ? "→" : "←"}</span>` +
+      `<b>${e.type}</b> · ${e.neighborName || e.neighborId}<span class="conf">${e.confidence}</span></div>`).join("")
+      : "Sem vizinhos.";
+  } catch (e) { $("node-neighbors").textContent = "erro: " + e.message; }
+  if (network) { network.selectNodes([id]); if (focus) network.focus(id, { scale: 1.1, animation: true }); }
+}
+
+function editNode(id) {
+  const node = findNode(id); if (!node) return;
+  const propsText = Object.entries(node.properties || {}).map(([k, v]) => `${k}=${v}`).join("\n");
+  const safe = node.name.replace(/"/g, "&quot;");
+  $("node-details").innerHTML =
+    `<div class="card"><div class="name">Editar nó</div><div class="type">${node.type} · ${node.id}</div>` +
+    `<div class="field" style="margin-top:8px"><label>Nome</label><input id="edit-name" value="${safe}"></div>` +
+    `<div class="field"><label>Propriedades (chave=valor por linha)</label><textarea id="edit-props">${propsText}</textarea></div>` +
+    `<div class="row"><button class="primary sm" onclick="saveNode('${id}')">Guardar</button>` +
+    `<button class="sm" onclick="selectNode('${id}',false)">Cancelar</button></div></div>`;
+}
+async function saveNode(id) {
+  const props = {};
+  $("edit-props").value.split("\n").forEach((l) => { const i = l.indexOf("="); if (i > 0) props[l.slice(0, i).trim()] = l.slice(i + 1).trim(); });
+  try {
+    await apiSend("PUT", "/nodes/" + encodeURIComponent(id), { name: $("edit-name").value.trim(), properties: props });
+    toast("Nó atualizado: " + id, "ok");
+    await refreshAll(); selectNode(id, false);
+  } catch (e) { toast("Erro: " + e.message, "err"); }
+}
+
+async function deleteNode(id) {
+  try { await apiSend("DELETE", "/nodes/" + encodeURIComponent(id)); toast("Nó apagado: " + id, "ok");
+    state.selectedId = null; $("node-details").innerHTML = "Nó apagado."; $("node-neighbors").innerHTML = "—";
+    await refreshAll();
+  } catch (e) { toast("Erro: " + e.message, "err"); }
+}
+
+// =====================================================================
+//  Rankings
+// =====================================================================
+async function renderPagerank() {
+  let list = state.rankList;
+  if ($("pr-weighted") && $("pr-weighted").checked) {
+    try { list = await apiGet("/ranking?top=100&weighted=true"); } catch (e) { toast("Erro: " + e.message, "err"); }
+  }
+  $("rank-pagerank").innerHTML = tableFromRows(
+    ["#", "Entidade", "Score"],
+    list.slice(0, 12).map((r, i) => [i + 1, r.name, r.score.toFixed(3), r.id]));
+}
+function renderRankings() {
+  renderPagerank();
+  $("rank-degree").innerHTML = tableFromRows(
+    ["Entidade", "in", "out", "total"],
+    state.degList.slice(0, 12).map((d) => [d.name, d.in, d.out, d.total, d.id]));
+}
+function tableFromRows(headers, rows) {
+  const th = headers.map((h, i) => `<th class="${i ? "num" : ""}">${h}</th>`).join("");
+  const tr = rows.map((r) => {
+    const id = r[r.length - 1];
+    const cells = r.slice(0, -1).map((c, i) => `<td class="${i ? "num" : ""}">${c}</td>`).join("");
+    return `<tr class="clickable" onclick="selectNode('${id}')">${cells}</tr>`;
+  }).join("");
+  return `<table class="list"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
+}
+
+// =====================================================================
+//  Criar (nós e relações)
+// =====================================================================
+function buildTypeSelects() {
+  const ent = state.schema.entityTypes.map((t) => `<option>${t}</option>`).join("");
+  const rel = state.schema.relationTypes.map((t) => `<option>${t}</option>`).join("");
+  $("n-type").innerHTML = ent;
+  $("r-type").innerHTML = rel;
+  $("q-type").innerHTML = ent;
+  $("q-reltype").innerHTML = rel;
+}
+function populateNodeSelects() {
+  const opts = state.graph.nodes.slice().sort((a, b) => a.name.localeCompare(b.name))
+    .map((n) => `<option value="${n.id}">${n.name} (${n.type})</option>`).join("");
+  ["r-source", "r-target", "path-from", "path-to", "t-start"].forEach((id) => {
+    const cur = $(id).value; $(id).innerHTML = opts; if (cur) $(id).value = cur;
+  });
+  if (findNode("indicator--ip-185")) $("path-from").value = "indicator--ip-185";
+  if (findNode("threat-actor--apt29")) $("path-to").value = "threat-actor--apt29";
+}
+
+async function createNode() {
+  const props = {};
+  $("n-props").value.split("\n").forEach((line) => {
+    const i = line.indexOf("="); if (i > 0) props[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  });
+  const body = { id: $("n-id").value.trim(), type: $("n-type").value, name: $("n-name").value.trim(), properties: props };
+  try {
+    await apiSend("POST", "/nodes", body);
+    toast("Nó criado: " + body.id, "ok");
+    $("n-id").value = ""; $("n-name").value = ""; $("n-props").value = "";
+    await refreshAll(); selectNode(body.id);
+  } catch (e) { toast("Erro: " + e.message, "err"); }
+}
+
+async function createRel() {
+  const body = {
+    id: $("r-id").value.trim() || "rel--" + Date.now(),
+    source: $("r-source").value, target: $("r-target").value,
+    type: $("r-type").value, confidence: parseInt($("r-conf").value, 10),
+  };
+  try {
+    await apiSend("POST", "/relationships", body);
+    toast("Relação criada: " + body.source + " —" + body.type + "→ " + body.target, "ok");
+    $("r-id").value = "";
+    await refreshAll();
+  } catch (e) { toast("Rejeitada: " + e.message, "err"); }
+}
+
+// =====================================================================
+//  Consultar
+// =====================================================================
+function highlightPath(ids) {
+  const idSet = new Set(ids);
+  nodesDS.forEach((n) => nodesDS.update({ id: n.id,
+    color: idSet.has(n.id) ? { background: HILITE, border: "#b45309" } : { background: TYPE_COLORS[n.group] || "#888", border: "#0008" },
+    opacity: idSet.has(n.id) ? 1 : 0.25 }));
+  const pairs = new Set();
+  for (let i = 0; i + 1 < ids.length; i++) { pairs.add(ids[i] + "|" + ids[i + 1]); pairs.add(ids[i + 1] + "|" + ids[i]); }
+  edgesDS.forEach((e) => { const on = pairs.has(e.from + "|" + e.to);
+    edgesDS.update({ id: e.id, color: { color: on ? HILITE : EDGE_COLOR }, width: on ? 3 : 1 }); });
+}
+function resetHighlight() {
+  if (!nodesDS) return;
+  nodesDS.forEach((n) => nodesDS.update({ id: n.id, color: { background: TYPE_COLORS[n.group] || "#888", border: "#0008" }, opacity: 1 }));
+  edgesDS.forEach((e) => edgesDS.update({ id: e.id, color: { color: EDGE_COLOR }, width: 1 }));
+  $("path-result").textContent = "";
+}
+async function computePath(endpoint = "/path", label = "mais curto") {
+  resetHighlight();
+  const from = $("path-from").value, to = $("path-to").value;
+  try {
+    const res = await apiGet(`${endpoint}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    if (!res.found) { $("path-result").textContent = "Sem caminho entre as entidades."; return; }
+    highlightPath(res.nodes.map((n) => n.id));
+    const parts = [];
+    res.nodes.forEach((n, i) => {
+      parts.push(n.name);
+      if (i < res.edgeTypes.length) parts.push(`—${res.edgeTypes[i]}(${res.edgeConfidences[i]})→`);
+    });
+    $("path-result").innerHTML = `<b>Caminho ${label}:</b> ${parts.join(" ")}` +
+      `<div class="hint">confiança mínima do percurso: ${res.minConfidence}/100</div>`;
+  } catch (e) { $("path-result").textContent = "erro: " + e.message; }
+}
+async function queryNodes() {
+  try {
+    const nodes = await apiGet("/nodes?type=" + encodeURIComponent($("q-type").value));
+    $("q-nodes-result").innerHTML = nodes.length ? tableFromRows(["Nome", "id"],
+      nodes.map((n) => [n.name, n.id, n.id])) : "<div class='hint'>Nenhum.</div>";
+  } catch (e) { toast("Erro: " + e.message, "err"); }
+}
+async function queryTraverse() {
+  try {
+    const res = await apiGet(`/traverse?start=${encodeURIComponent($("t-start").value)}&mode=${$("t-mode").value}`);
+    $("t-result").innerHTML = "<b>" + res.mode.toUpperCase() + ":</b> " +
+      res.order.map((n) => n.name).join(" → ");
+  } catch (e) { toast("Erro: " + e.message, "err"); }
+}
+async function queryRels() {
+  try {
+    const rels = await apiGet("/relationships?type=" + encodeURIComponent($("q-reltype").value));
+    $("q-rels-result").innerHTML = rels.length
+      ? `<table class="list"><thead><tr><th>Origem</th><th>Destino</th><th class="num">Conf</th></tr></thead><tbody>` +
+        rels.map((r) => `<tr class="clickable" onclick="selectNode('${r.source}')"><td>${nameOf(r.source)}</td><td>${nameOf(r.target)}</td><td class="num">${r.confidence}</td></tr>`).join("") +
+        `</tbody></table>` : "<div class='hint'>Nenhuma.</div>";
+  } catch (e) { toast("Erro: " + e.message, "err"); }
+}
+
+// =====================================================================
+//  Dados (estatísticas, persistência, eventos)
+// =====================================================================
+async function renderStats() {
+  try {
+    const s = await apiGet("/stats");
+    $("stat-cards").innerHTML =
+      `<div class="stat"><div class="n">${s.nodes}</div><div class="l">nós</div></div>` +
+      `<div class="stat"><div class="n">${s.relationships}</div><div class="l">relações</div></div>` +
+      `<div class="stat"><div class="n">${s.components}</div><div class="l">comunidades</div></div>`;
+    $("stat-bytype").innerHTML = tableFromRowsPlain(["Tipo", "Nós"],
+      Object.entries(s.nodesByType).map(([t, c]) => [t, c]));
+  } catch (e) { toast("Erro: " + e.message, "err"); }
+}
+function tableFromRowsPlain(headers, rows) {
+  const th = headers.map((h, i) => `<th class="${i ? "num" : ""}">${h}</th>`).join("");
+  const tr = rows.map((r) => `<tr>${r.map((c, i) => `<td class="${i ? "num" : ""}">${c}</td>`).join("")}</tr>`).join("");
+  return `<table class="list"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
+}
+async function saveDb() {
+  try { const r = await apiSend("POST", "/admin/save", { path: $("db-path").value });
+    toast(`Guardado em ${r.path} (${r.nodes} nós, ${r.relationships} relações)`, "ok"); } catch (e) { toast("Erro: " + e.message, "err"); }
+}
+async function loadDb() {
+  try { const r = await apiSend("POST", "/admin/load", { path: $("db-path").value });
+    toast(`Carregado de ${r.path} (${r.nodes} nós, ${r.relationships} relações)`, "ok"); await refreshAll(); renderStats(); } catch (e) { toast("Erro: " + e.message, "err"); }
+}
+async function resetDb() {
+  try { const r = await apiSend("POST", "/admin/reset");
+    toast(`Reposto (${r.nodes} nós, ${r.relationships} relações)`, "ok");
+    state.activeTypes = new Set(Object.keys(TYPE_COLORS));
+    await refreshAll(); renderStats(); } catch (e) { toast("Erro: " + e.message, "err"); }
+}
+async function loadEvents() {
+  try { const ev = await apiGet("/events");
+    $("events-list").innerHTML = ev.length ? ev.slice().reverse().map((e) => `<div class="neighbor">${e}</div>`).join("")
+      : "<div class='hint'>Sem eventos.</div>"; } catch (e) { toast("Erro: " + e.message, "err"); }
+}
+
+// =====================================================================
+//  Abas
+// =====================================================================
+function switchTab(name) {
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+  document.querySelectorAll(".tab-page").forEach((p) => p.classList.toggle("active", p.id === "page-" + name));
+  if (name === "rankings") renderRankings();
+  if (name === "dados") { renderStats(); loadEvents(); }
+}
+
+// =====================================================================
+//  Demonstração narrativa
+// =====================================================================
+async function runDemo() {
+  toast("Demonstração: indicador suspeito → ator provável");
+  state.activeTypes = new Set(Object.keys(TYPE_COLORS));
+  state.activeRelTypes = new Set(state.graph.relationships.map((r) => r.type));
+  buildFilters(); buildRelFilters(); renderGraph();
+  await new Promise((r) => setTimeout(r, 700));
+  await selectNode("indicator--ip-185");
+  await new Promise((r) => setTimeout(r, 900));
+  switchTab("consultar");
+  $("path-from").value = "indicator--ip-185"; $("path-to").value = "threat-actor--apt29";
+  await computePath();
+}
+
+// =====================================================================
+//  Ligação de eventos da UI
+// =====================================================================
+function wireEvents() {
+  document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => switchTab(t.dataset.tab)));
+  $("btn-demo").onclick = runDemo;
+  $("btn-fit").onclick = () => { resetHighlight(); network && network.fit({ animation: true }); };
+  $("r-conf").oninput = (e) => ($("r-conf-val").textContent = e.target.value);
+  $("btn-create-node").onclick = createNode;
+  $("btn-create-rel").onclick = createRel;
+  $("btn-path").onclick = () => computePath("/path", "mais curto");
+  $("btn-strong").onclick = () => computePath("/strongest-path", "mais fiável");
+  $("btn-clearpath").onclick = resetHighlight;
+  $("pr-weighted").onchange = renderPagerank;
+  $("btn-q-nodes").onclick = queryNodes;
+  $("btn-q-rels").onclick = queryRels;
+  $("btn-traverse").onclick = queryTraverse;
+  $("btn-save").onclick = saveDb;
+  $("btn-load").onclick = loadDb;
+  $("btn-reset").onclick = resetDb;
+  $("btn-events").onclick = loadEvents;
+  $("search").onkeydown = (e) => {
+    if (e.key !== "Enter") return;
+    const q = e.target.value.trim().toLowerCase();
+    const hit = state.graph.nodes.find((n) => n.name.toLowerCase().includes(q));
+    if (hit) selectNode(hit.id); else toast("Nenhum nó com esse nome.", "err");
+  };
+}
+
+init();
+</script>
+</body>
+</html>

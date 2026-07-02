@@ -1,0 +1,16 @@
+# Build do CMake
+/build/
+*.o
+*.obj
+*.exe
+
+# Bases de dados geradas (níveis seguintes)
+*.db
+*.sqlite
+
+# Ficheiros do editor / SO
+.DS_Store
+Thumbs.db
+
+# Configuração local do editor/assistente
+.claude/
